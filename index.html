@@ -8,82 +8,66 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
-        
         :root { --accent: #6366f1; --bg: #020408; }
         body { 
             overflow: hidden; background: var(--bg); color: #e2e8f0; 
             font-family: 'Plus Jakarta Sans', sans-serif;
             width: 100vw; height: 100vh;
         }
-
-        /* Viewport Logic */
         #viewport {
-            position: absolute; inset: 0;
-            z-index: 1; overflow: hidden;
+            position: absolute; inset: 0; z-index: 1; overflow: hidden;
             background: radial-gradient(circle at 50% 50%, #0f172a 0%, #020408 100%);
         }
-
-        #world {
-            position: absolute; transform-origin: 0 0; will-change: transform;
-        }
-
-        .node {
+        #world { position: absolute; transform-origin: 0 0; will-change: transform; }
+        
+        .thought-bulb {
             position: absolute; user-select: none; touch-action: none;
-            will-change: transform; z-index: 10; cursor: grab;
-            width: 280px;
+            will-change: transform; z-index: 10; cursor: grab; width: 280px;
         }
-
-        .node-content {
-            background: rgba(15, 23, 42, 0.94);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-            padding: 24px; border-radius: 32px;
+        .thought-bulb-content {
+            background: rgba(15, 23, 42, 0.94); backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            padding: 24px; border-radius: 32px; pointer-events: auto;
         }
+        .thought-bulb.dragging .thought-bulb-content { border-color: var(--accent); box-shadow: 0 0 40px rgba(99, 102, 241, 0.4); }
 
-        .node.dragging .node-content { border-color: var(--accent); box-shadow: 0 0 40px rgba(99, 102, 241, 0.4); }
-
-        /* Custom Sleek Scrollbar */
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
         .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
         .custom-scroll::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-        /* Kanban Visuals */
         .kanban-overlay {
             position: absolute; inset: 0; display: flex; 
-            pointer-events: none; opacity: 0; transition: opacity 0.4s;
-            z-index: 80; 
+            pointer-events: none; opacity: 0; transition: opacity 0.4s; z-index: 80; 
         }
         body.view-kanban .kanban-overlay { opacity: 1; }
         .col-section { flex: 1; border-right: 1px dashed rgba(255,255,255,0.05); }
         .col-header-box { 
             height: 60px; margin-top: 140px; display: flex; align-items: center; justify-content: center;
-            background: rgba(2, 4, 8, 0.6); backdrop-filter: blur(12px);
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            background: rgba(2, 4, 8, 0.7); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.05);
         }
         .col-label { font-size: 11px; font-weight: 900; color: var(--accent); letter-spacing: 0.4em; text-transform: uppercase; }
 
         .glass { background: rgba(10, 10, 15, 0.85); backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.1); }
-        .tag-pill { font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; border-width: 1px; }
-        .tag-input-wrap { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); }
+        .tag-pill { font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid rgba(255,255,255,0.1); }
+        .tag-input-wrap { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); }
         .tag-input-wrap input { background: transparent; border: none; outline: none; font-size: 12px; flex: 1; color: white; min-width: 60px; }
         
-        .checkbox { width: 16px; height: 16px; border: 1.5px solid rgba(255,255,255,0.2); border-radius: 4px; flex-shrink: 0; position: relative; cursor: pointer; }
+        .checkbox { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.1); border-radius: 6px; flex-shrink: 0; position: relative; cursor: pointer; transition: 0.2s; }
         .checkbox.checked { background: var(--accent); border-color: var(--accent); }
-        .checkbox.checked::after { content: '✓'; position: absolute; font-size: 10px; left: 2px; top: -1px; color: white; }
+        .checkbox.checked::after { content: '✓'; position: absolute; font-size: 12px; left: 3px; top: -1px; color: white; }
 
         #connection-canvas { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
         .active-tab { background: var(--accent); color: white; box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.4); }
-
         #project-menu { transform: translateY(-10px); opacity: 0; transition: all 0.2s ease-out; pointer-events: none; }
         #project-menu.active { transform: translateY(0); opacity: 1; pointer-events: auto; }
 
         #modal-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(10px);
             z-index: 1000; display: none; align-items: center; justify-content: center;
         }
         .modal-box { width: 420px; padding: 40px; border-radius: 40px; border: 1px solid rgba(255,255,255,0.1); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="view-spatial">
@@ -100,13 +84,13 @@
         <div class="col-section" style="border:none"><div class="col-header-box"><span class="col-label">Done</span></div></div>
     </div>
 
-    <!-- UI: Header -->
+    <!-- UI: Top Header -->
     <div class="fixed top-8 left-8 right-8 z-[100] flex items-center justify-between pointer-events-none">
         <div class="pointer-events-auto flex items-center gap-4">
             <div>
                 <h1 class="text-3xl font-bold tracking-tighter text-white">Thoughtist</h1>
                 <div class="flex items-center gap-2 mt-1">
-                    <p id="proj-title" class="text-[10px] uppercase tracking-widest text-indigo-400 font-black truncate max-w-[120px]">Project Name</p>
+                    <p id="proj-title" class="text-[10px] uppercase tracking-widest text-indigo-400 font-black truncate max-w-[120px]">Project</p>
                     <button onclick="toggleProjectMenu()" class="p-1 rounded-md bg-white/5 hover:bg-white/10 transition-colors">
                         <i data-lucide="sliders-horizontal" class="w-3 h-3 text-white"></i>
                     </button>
@@ -120,11 +104,9 @@
                 <button onclick="openProjectModal('delete')" class="p-2 hover:bg-red-500/10 rounded-xl transition-colors text-red-500"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
             </div>
         </div>
-
         <div id="project-tabs" class="flex items-center gap-2 p-1.5 bg-black/40 rounded-2xl border border-white/10 pointer-events-auto overflow-x-auto no-scrollbar max-w-[40%]"></div>
-
         <div class="flex gap-2 pointer-events-auto">
-            <button onclick="addNode()" class="glass py-3 px-5 rounded-2xl flex items-center gap-3 hover:bg-white/5 transition-all">
+            <button onclick="addThought()" class="glass py-3 px-5 rounded-2xl flex items-center gap-3 hover:bg-white/5 transition-all">
                 <i data-lucide="plus" class="w-4 h-4 text-indigo-400"></i><span class="text-xs font-bold uppercase tracking-wider">New Thought</span>
             </button>
             <button onclick="toggleView()" class="glass py-3 px-5 rounded-2xl flex items-center gap-3 hover:bg-white/5 transition-all">
@@ -134,21 +116,22 @@
     </div>
 
     <!-- UI: Inspector -->
-    <div id="inspector" class="fixed top-[120px] right-8 z-[200] w-80 glass rounded-[2.5rem] p-8 hidden shadow-2xl overflow-y-auto max-h-[75vh] custom-scroll">
+    <div id="inspector" class="fixed top-[120px] right-8 z-[200] w-80 glass rounded-[2.5rem] p-8 hidden shadow-2xl overflow-y-auto max-h-[70vh] custom-scroll">
         <div class="flex justify-between items-center mb-8">
-            <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500">Node Editor</h3>
+            <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 text-white">Thought Editor</h3>
             <button onclick="closeInspector()" class="text-slate-500 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
         <div class="space-y-6">
             <input type="text" id="edit-text" maxlength="30" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-indigo-500 text-white">
-            <textarea id="edit-desc" rows="3" maxlength="150" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-indigo-500 text-white" placeholder="Description..."></textarea>
+            <textarea id="edit-desc" rows="3" maxlength="150" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-indigo-500 text-white" placeholder="Details..."></textarea>
             <div id="edit-tasks" class="space-y-2"></div>
             <button onclick="addTask()" class="w-full py-2 rounded-xl border border-dashed border-white/20 text-[10px] uppercase font-bold text-slate-400 hover:bg-white/5">+ Add Task</button>
             <div class="tag-input-wrap" id="tag-input-container"><input type="text" id="tag-field" placeholder="Add tag..."></div>
-            <button onclick="deleteNode()" class="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest">Delete Thought</button>
+            <button onclick="deleteThought()" class="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest">Delete Thought</button>
         </div>
     </div>
 
+    <!-- Modals -->
     <div id="modal-overlay">
         <div class="modal-box glass text-center">
             <h2 id="modal-title" class="text-xl font-bold mb-2 text-white"></h2>
@@ -161,27 +144,28 @@
         </div>
     </div>
 
-    <!-- UI: Bottom Bar -->
+    <!-- UI: Bottom Dock -->
     <div class="fixed bottom-8 left-1/2 -translate-x-1/2 glass px-8 py-4 rounded-full z-[100] flex gap-8 items-center text-[10px] uppercase font-bold tracking-widest text-slate-500">
-        <div class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-green-500"></span> <span class="text-white"><span id="node-count">0</span> Thoughts</span></div>
+        <div class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]"></span> <span class="text-white"><span id="node-count">0</span>/40 Thoughts</span></div>
         <div class="h-4 w-[1px] bg-white/10"></div>
         <button onclick="togglePhysics()" id="phys-btn" class="flex items-center gap-2 transition-all">
             <i data-lucide="zap" class="w-3.5 h-3.5"></i> <span id="phys-status">Physics On</span>
         </button>
         <div class="h-4 w-[1px] bg-white/10"></div>
-        <button onclick="exportData()" class="hover:text-white flex items-center gap-2 transition-colors"><i data-lucide="download" class="w-3 h-3"></i> Export</button>
-        <label class="flex items-center gap-2 cursor-pointer hover:text-white"><i data-lucide="upload" class="w-3 h-3"></i> Import <input type="file" id="import-input" class="hidden" accept=".json"></label>
+        <button onclick="exportData()" class="hover:text-white flex items-center gap-2 transition-colors"><i data-lucide="download" class="w-3.5 h-3.5"></i> Export</button>
+        <label class="flex items-center gap-2 cursor-pointer hover:text-white"><i data-lucide="upload" class="w-3.5 h-3.5"></i> Import <input type="file" id="import-input" class="hidden" accept=".json"></label>
         <div class="h-4 w-[1px] bg-white/10"></div>
         <button onclick="openProjectModal('new')" class="text-indigo-400 hover:text-white transition-all">+ New Project (<span id="proj-slots">0</span>/8)</button>
     </div>
 
     <script>
-        let projects = JSON.parse(localStorage.getItem('thoughtist_vPlatinum')) || [
-            { id: 'p1', name: 'General Space', nodes: [], mode: 'spatial', physics: true }
+        const STORAGE_KEY = 'thoughtist_MASTER_ULTIMATE_v1';
+        let projects = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [
+            { id: 'p1', name: 'Main Project', nodes: [], mode: 'spatial', physics: true }
         ];
         let activeProjectId = projects[0].id;
-        let nodes = [];
-        let selectedNode = null;
+        let thoughts = [];
+        let selectedThought = null;
 
         let transform = { x: 0, y: 0, scale: 1 };
         const viewport = document.getElementById('viewport');
@@ -189,19 +173,18 @@
         const canvas = document.getElementById('connection-canvas');
         const ctx = canvas.getContext('2d');
 
-        // Physics Constants
         const DAMPING = 0.88;
-        const REPULSION_BASE = 45000;
-        const ATTRACTION_STRENGTH = 0.02;
+        const REPULSION_BASE = 48000;
+        const ATTRACTION_STRENGTH = 0.025;
         const CENTER_GRAVITY = 0.005;
 
-        class ThoughtNode {
+        class Thought {
             constructor(data) {
                 this.id = data.id || Math.random();
                 this.x = data.x || window.innerWidth / 2;
                 this.y = data.y || window.innerHeight / 2;
                 this.vx = 0; this.vy = 0;
-                this.text = data.text || "New Idea";
+                this.text = data.text || "New Thought";
                 this.description = data.description || "";
                 this.tags = data.tags || [];
                 this.status = data.status || 'todo';
@@ -214,7 +197,7 @@
 
             createDOM() {
                 const div = document.createElement('div');
-                div.className = 'node';
+                div.className = 'thought-bulb';
                 div.addEventListener('mousedown', (e) => this.onStart(e));
                 div.addEventListener('click', (e) => {
                     if (!e.target.closest('.checkbox') && !this.isDragging) this.openInspector();
@@ -227,13 +210,14 @@
                 const done = this.tasks.filter(t => t.done).length;
                 const prog = this.tasks.length ? (done / this.tasks.length) * 100 : 0;
                 this.element.innerHTML = `
-                    <div class="node-content flex flex-col gap-3">
+                    <div class="thought-bulb-content flex flex-col gap-3">
                         <p class="text-[13px] font-bold leading-tight text-white">${this.text}</p>
                         ${this.description ? `<p class="text-[11px] text-slate-400 leading-relaxed font-medium">${this.description}</p>` : ''}
-                        ${this.tasks.length ? `<div class="h-1 w-full bg-white/10 rounded-full overflow-hidden mt-1"><div class="h-full bg-indigo-500 transition-all duration-500" style="width:${prog}%"></div></div>` : ''}
-                        <div class="flex flex-wrap gap-1 mt-1">${this.tags.map(t => `<span class="tag-pill" style="${getTagStyle(t)}">${t}</span>`).join('')}</div>
+                        ${this.tasks.length ? `<div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden mt-1"><div class="h-full bg-indigo-500 transition-all duration-500" style="width:${prog}%"></div></div>` : ''}
+                        <div class="flex flex-wrap gap-1.5 mt-1">${this.tags.map(t => `<span class="tag-pill" style="${getTagStyle(t)}">${t}</span>`).join('')}</div>
                     </div>
                 `;
+                lucide.createIcons();
             }
 
             onStart(e) {
@@ -267,12 +251,12 @@
             }
 
             reorderColumn(status) {
-                const col = nodes.filter(n => n.status === status).sort((a,b) => a.y - b.y);
+                const col = thoughts.filter(n => n.status === status).sort((a,b) => a.y - b.y);
                 col.forEach((n, i) => n.order = i);
             }
 
             openInspector() {
-                selectedNode = this;
+                selectedThought = this;
                 document.getElementById('inspector').classList.remove('hidden');
                 document.getElementById('edit-text').value = this.text;
                 document.getElementById('edit-desc').value = this.description;
@@ -296,16 +280,33 @@
                 const area = document.getElementById('edit-tasks');
                 area.innerHTML = this.tasks.map((t, i) => `
                     <div class="flex items-center gap-3">
-                        <div class="checkbox ${t.done ? 'checked' : ''}" onclick="toggleTask(${this.id}, ${i}); selectedNode.renderTasks();"></div>
-                        <input type="text" value="${t.text}" oninput="editTask(${i}, this.value)" class="flex-1 bg-white/5 border border-white/10 rounded-xl p-2 text-xs outline-none text-white">
-                        <button onclick="removeTask(${i})" class="text-red-400"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        <div class="checkbox ${t.done ? 'checked' : ''}" onclick="toggleTask(${this.id}, ${i})"></div>
+                        <input type="text" value="${t.text}" oninput="editTask(${i}, this.value)" class="flex-1 bg-black/20 border border-white/5 rounded-xl p-3 text-xs outline-none text-white focus:border-indigo-500">
+                        <button onclick="removeTask(${i})" class="text-red-400 p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                     </div>
                 `).join('');
                 lucide.createIcons();
             }
         }
 
-        // Viewport Logic
+        // Global Event Listeners
+        document.getElementById('edit-text').addEventListener('input', e => { if(selectedThought){ selectedThought.text = e.target.value; selectedThought.updateDOM(); save(); }});
+        document.getElementById('edit-desc').addEventListener('input', e => { if(selectedThought){ selectedThought.description = e.target.value; selectedThought.updateDOM(); save(); }});
+        const tagInput = document.getElementById('tag-field');
+        tagInput.addEventListener('keydown', e => {
+            if ((e.key === 'Enter' || e.key === ',') && tagInput.value.trim() && selectedThought) {
+                e.preventDefault();
+                const val = tagInput.value.trim().replace(',', '');
+                if (!selectedThought.tags.includes(val)) {
+                    selectedThought.tags.push(val);
+                    tagInput.value = '';
+                    selectedThought.renderTags();
+                    selectedThought.updateDOM();
+                    save();
+                }
+            }
+        });
+
         let isPanning = false; let lastMousePos = { x: 0, y: 0 };
         viewport.addEventListener('mousedown', (e) => {
             if (!document.body.classList.contains('view-kanban') && (e.button === 1 || (e.button === 0 && e.altKey))) {
@@ -332,56 +333,30 @@
 
         function updateWorldTransform() { world.style.transform = `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`; }
 
-        // Application State
-        function init() {
-            lucide.createIcons();
-            canvas.width = 5000; canvas.height = 5000;
-            
-            document.getElementById('tag-field').addEventListener('keydown', e => {
-                const val = e.target.value.trim().substring(0, 12);
-                if ((e.key === 'Enter' || e.key === ',') && val) {
-                    if (!selectedNode.tags.includes(val)) {
-                        selectedNode.tags.push(val); e.target.value = '';
-                        selectedNode.renderTags(); selectedNode.updateDOM(); save();
-                    }
-                }
-            });
-            
-            document.getElementById('edit-text').addEventListener('input', (e) => { if(selectedNode){ selectedNode.text = e.target.value; selectedNode.updateDOM(); save(); }});
-            document.getElementById('edit-desc').addEventListener('input', (e) => { if(selectedNode){ selectedNode.description = e.target.value; selectedNode.updateDOM(); save(); }});
-
-            loadProject(activeProjectId);
-            requestAnimationFrame(loop);
-        }
-
         function loop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const p = projects.find(x => x.id === activeProjectId);
             const isKanban = document.body.classList.contains('view-kanban');
-            nodes.forEach((n, i) => {
+            thoughts.forEach((n, i) => {
                 if (!n.isDragging) {
                     if (isKanban) {
                         let tx = window.innerWidth * 0.16;
                         if (n.status === 'doing') tx = window.innerWidth * 0.5;
                         if (n.status === 'done') tx = window.innerWidth * 0.84;
-                        const col = nodes.filter(x => x.status === n.status).sort((a,b) => a.order - b.order);
+                        const col = thoughts.filter(x => x.status === n.status).sort((a,b) => a.order - b.order);
                         let ty = 280;
                         for (let other of col) { if (other.id === n.id) break; ty += other.element.offsetHeight + 24; }
                         n.x += (tx - n.x) * 0.15; n.y += (ty + (n.element.offsetHeight/2) - n.y) * 0.15;
                     } else if (p.physics) {
                         n.vx += (window.innerWidth/2 - n.x) * CENTER_GRAVITY;
                         n.vy += (window.innerHeight/2 - n.y) * CENTER_GRAVITY;
-                        nodes.forEach((other, j) => {
+                        thoughts.forEach((other, j) => {
                             if (i === j) return;
                             const dx = n.x - other.x, dy = n.y - other.y;
                             const distSq = dx*dx + dy*dy || 1;
-                            const dist = Math.sqrt(distSq);
-                            
-                            // Universal Repulsion
                             const force = REPULSION_BASE / distSq;
-                            n.vx += (dx / dist) * force; n.vy += (dy / dist) * force;
-
-                            // Selective Tag Attraction
+                            const d = Math.sqrt(distSq);
+                            n.vx += (dx / d) * force; n.vy += (dy / d) * force;
                             if (n.tags.some(t => other.tags.includes(t))) {
                                 n.vx -= dx * ATTRACTION_STRENGTH; n.vy -= dy * ATTRACTION_STRENGTH;
                                 ctx.beginPath(); ctx.moveTo(n.x, n.y); ctx.lineTo(other.x, other.y);
@@ -396,7 +371,6 @@
             requestAnimationFrame(loop);
         }
 
-        // CRUD & Modals
         function openProjectModal(type) {
             const p = projects.find(x => x.id === activeProjectId);
             const overlay = document.getElementById('modal-overlay');
@@ -405,39 +379,44 @@
             const cancelBtn = document.getElementById('modal-cancel-btn');
             overlay.style.display = 'flex'; input.style.display = 'block'; cancelBtn.style.display = 'block';
             if (type === 'rename') {
-                document.getElementById('modal-title').innerText = "Rename Space"; input.value = p.name;
+                document.getElementById('modal-title').innerText = "Rename Project"; input.value = p.name;
                 btn.onclick = () => { p.name = input.value.substring(0, 15) || p.name; save(); loadProject(activeProjectId); closeModal(); };
             } else if (type === 'new') {
                 if (projects.length >= 8) return openProjectModal('error_limit');
-                document.getElementById('modal-title').innerText = "New Space"; input.value = "";
+                document.getElementById('modal-title').innerText = "New Project"; input.value = "";
                 btn.onclick = () => { const id = 'p'+Date.now(); projects.push({ id, name: input.value.substring(0, 15) || "Unnamed", nodes: [], mode: 'spatial', physics: true }); save(); loadProject(id); closeModal(); };
             } else if (type === 'delete') {
                 if (projects.length <= 1) return openProjectModal('error_min');
-                document.getElementById('modal-title').innerText = "Erase Space"; input.style.display = 'none';
+                document.getElementById('modal-title').innerText = "Delete Project"; input.style.display = 'none';
                 btn.onclick = () => { projects = projects.filter(x => x.id !== activeProjectId); activeProjectId = projects[0].id; save(); loadProject(activeProjectId); closeModal(); };
+            } else if (type === 'limit') {
+                document.getElementById('modal-title').innerText = "Thought Limit"; document.getElementById('modal-desc').innerText = "Maximum of 40 thoughts per project."; input.style.display = 'none'; cancelBtn.style.display = 'none'; btn.onclick = closeModal;
             } else {
-                document.getElementById('modal-title').innerText = "Limit Reached"; input.style.display = 'none'; cancelBtn.style.display = 'none';
-                btn.onclick = closeModal;
+                document.getElementById('modal-title').innerText = "Access Restricted"; input.style.display = 'none'; cancelBtn.style.display = 'none'; btn.onclick = closeModal;
             }
         }
         function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+
         function loadProject(id) {
-            nodes.forEach(n => n.element.remove());
+            thoughts.forEach(n => n.element.remove());
             activeProjectId = id;
             const p = projects.find(p => p.id === id);
-            nodes = (p.nodes || []).sort((a,b) => a.order - b.order).map(n => new ThoughtNode(n));
+            thoughts = (p.nodes || []).sort((a,b) => a.order - b.order).map(n => new Thought(n));
             document.body.className = 'view-' + p.mode;
             document.getElementById('view-btn-text').innerText = p.mode === 'spatial' ? 'Kanban Mode' : 'Spatial Mode';
             document.getElementById('proj-title').innerText = p.name;
             transform = { x: 0, y: 0, scale: 1 }; updateWorldTransform();
             updatePhysBtn(); renderTabs(); updateStats();
             document.getElementById('project-menu').classList.remove('active');
+            lucide.createIcons();
         }
+
         function save() {
             const p = projects.find(p => p.id === activeProjectId);
-            p.nodes = nodes.map(n => ({ id: n.id, x: n.x, y: n.y, text: n.text, description: n.description, tags: n.tags, status: n.status, tasks: n.tasks, order: n.order }));
-            localStorage.setItem('thoughtist_vPlatinum', JSON.stringify(projects));
+            p.nodes = thoughts.map(n => ({ id: n.id, x: n.x, y: n.y, text: n.text, description: n.description, tags: n.tags, status: n.status, tasks: n.tasks, order: n.order }));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
         }
+
         function togglePhysics() { const p = projects.find(x => x.id === activeProjectId); p.physics = !p.physics; updatePhysBtn(); save(); }
         function updatePhysBtn() {
             const p = projects.find(x => x.id === activeProjectId);
@@ -456,31 +435,32 @@
             document.getElementById('proj-slots').innerText = projects.length;
         }
 
-        // Color Spectrum Engine
         function getTagStyle(tag) {
-            let hash = 0;
-            for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
-            const hue = Math.abs(hash % 360);
+            let hash = 0; for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+            const hue = Math.abs(hash * 137.5) % 360; 
             return `background: hsla(${hue}, 70%, 50%, 0.15); color: hsla(${hue}, 90%, 75%, 1); border-color: hsla(${hue}, 70%, 50%, 0.3);`;
         }
 
-        function addNode() { nodes.push(new ThoughtNode({ x: (window.innerWidth/2 - transform.x)/transform.scale, y: (window.innerHeight/2 - transform.y)/transform.scale, order: nodes.length })); updateStats(); save(); }
-        function toggleTask(id, i) { const n = nodes.find(x => x.id === id); n.tasks[i].done = !n.tasks[i].done; n.updateDOM(); save(); }
-        function addTask() { selectedNode.tasks.push({ text: "Action item", done: false }); selectedNode.renderTasks(); selectedNode.updateDOM(); save(); }
-        function removeTag(i) { selectedNode.tags.splice(i, 1); selectedNode.renderTags(); selectedNode.updateDOM(); save(); }
+        function addThought() { 
+            if (thoughts.length >= 40) return openProjectModal('limit');
+            thoughts.push(new Thought({ x: (window.innerWidth/2 - transform.x)/transform.scale, y: (window.innerHeight/2 - transform.y)/transform.scale, order: thoughts.length })); updateStats(); save(); 
+        }
+        function toggleTask(id, i) { const n = thoughts.find(x => x.id === id); n.tasks[i].done = !n.tasks[i].done; n.updateDOM(); save(); if(selectedThought) selectedThought.renderTasks(); }
+        function addTask() { if(selectedThought){ selectedThought.tasks.push({ text: "Action item", done: false }); selectedThought.renderTasks(); selectedThought.updateDOM(); save(); }}
+        function removeTag(i) { if(selectedThought){ selectedThought.tags.splice(i, 1); selectedThought.renderTags(); selectedThought.updateDOM(); save(); }}
         function toggleView() { const p = projects.find(p => p.id === activeProjectId); p.mode = p.mode === 'spatial' ? 'kanban' : 'spatial'; loadProject(activeProjectId); save(); }
-        function exportData() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(projects)])); a.download = 'thoughtist_archive.json'; a.click(); }
+        function exportData() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(projects)])); a.download = 'thoughtist_backup.json'; a.click(); }
         document.getElementById('import-input').addEventListener('change', e => {
             const reader = new FileReader(); reader.onload = ev => { projects = JSON.parse(ev.target.result).slice(0, 8); save(); loadProject(projects[0].id); };
             reader.readAsText(e.target.files[0]);
         });
-        function editTask(i, v) { selectedNode.tasks[i].text = v; selectedNode.updateDOM(); save(); }
-        function removeTask(i) { selectedNode.tasks.splice(i, 1); selectedNode.renderTasks(); selectedNode.updateDOM(); save(); }
-        function deleteNode() { nodes = nodes.filter(n => n.id !== selectedNode.id); selectedNode.element.remove(); closeInspector(); updateStats(); save(); }
-        function closeInspector() { document.getElementById('inspector').classList.add('hidden'); selectedNode = null; }
-        function updateStats() { document.getElementById('node-count').innerText = nodes.length; }
+        function editTask(i, v) { if(selectedThought){ selectedThought.tasks[i].text = v; selectedThought.updateDOM(); save(); }}
+        function removeTask(i) { if(selectedThought){ selectedThought.tasks.splice(i, 1); selectedThought.renderTasks(); selectedThought.updateDOM(); save(); }}
+        function deleteThought() { thoughts = thoughts.filter(n => n.id !== selectedThought.id); selectedThought.element.remove(); closeInspector(); updateStats(); save(); }
+        function closeInspector() { document.getElementById('inspector').classList.add('hidden'); selectedThought = null; }
+        function updateStats() { document.getElementById('node-count').innerText = thoughts.length; }
         
-        window.onload = () => { init(); };
+        window.onload = () => { canvas.width = 5000; canvas.height = 5000; loadProject(activeProjectId); requestAnimationFrame(loop); };
     </script>
 </body>
 </html>
