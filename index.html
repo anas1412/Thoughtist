@@ -555,10 +555,16 @@
             updateDOM() {
                 let inner = "";
                 if (this.type === 'text') {
-                    const contentPreview = this.content ? `<div class="markdown-body mt-1">${marked.parse(this.content)}</div>` : '';
+                    const hasContent = this.content && this.content.trim().length > 0;
+                    const contentPreview = hasContent ? `<div class="markdown-body mt-1 line-clamp-6">${marked.parse(this.content)}</div>` : '';
+                    
                     inner = `
-                        <div class="relative group/text">
-                            ${contentPreview}
+                        <div class="relative group/text overflow-hidden rounded-xl">
+                            <div class="text-preview-mask ${hasContent ? 'max-h-[120px]' : ''} overflow-hidden relative">
+                                ${contentPreview}
+                                ${hasContent ? '<div class="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#0f172a] to-transparent pointer-events-none"></div>' : ''}
+                            </div>
+                            ${hasContent && this.content.length > 200 ? '<div class="text-[8px] opacity-30 text-center mt-1">Read more...</div>' : ''}
                             <div class="absolute inset-0 bg-indigo-500/10 opacity-0 group-hover/text:opacity-100 transition-opacity rounded-xl flex items-center justify-center pointer-events-none">
                                 <button onclick="openTextEditor(${this.id})" class="pointer-events-auto bg-indigo-500 text-white p-2 rounded-lg shadow-xl transform scale-90 group-hover/text:scale-100 transition-all">
                                     <i data-lucide="maximize-2" class="w-4 h-4"></i>
