@@ -479,7 +479,19 @@
             checkEmptyState();
         }
 
-        function save() { const p = projects.find(p => p.id === activeProjectId); p.nodes = thoughts.map(n => ({ id: n.id, x: n.x, y: n.y, text: n.text, description: n.description, tags: n.tags, status: n.status, tasks: n.tasks, drawing: n.drawing, table: n.table, order: n.order, type: n.type, content: n.content, date: n.date, image: n.image })); localStorage.setItem(KEY, JSON.stringify(projects)); }
+        function save() { 
+            try {
+                const p = projects.find(p => p.id === activeProjectId); 
+                p.nodes = thoughts.map(n => ({ id: n.id, x: n.x, y: n.y, text: n.text, description: n.description, tags: n.tags, status: n.status, tasks: n.tasks, drawing: n.drawing, table: n.table, order: n.order, type: n.type, content: n.content, date: n.date, image: n.image })); 
+                localStorage.setItem(KEY, JSON.stringify(projects)); 
+            } catch (e) {
+                if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                    alert("Storage Limit Reached! Try removing some large images or sketches to save your progress.");
+                } else {
+                    console.error("Save Error:", e);
+                }
+            }
+        }
 
         // Paste & Image Logic
         window.addEventListener('paste', (e) => {
