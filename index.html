@@ -245,7 +245,7 @@
                 </div>
             </div>
             <div class="tag-input-wrap" id="tag-container"><input type="text" id="tag-input" placeholder="Add tag..." class="bg-transparent outline-none text-white text-xs w-full"></div>
-            <button onclick="deleteThought()" class="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-colors">Delete Thought</button>
+            <button onclick="openProjectModal('delete_node')" class="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-colors">Delete Thought</button>
         </div>
     </div>
 
@@ -438,7 +438,8 @@
                 order: thoughts.length,
                 ...data
             }); 
-            thoughts.push(n); updateStats(); save(); 
+            thoughts.push(n); updateStats(); save();
+            setTimeout(() => n.openInspector(), 50); // Slight delay to ensure DOM is ready
         }
         function deleteThought() { thoughts = thoughts.filter(n => n.id !== selectedThought.id); selectedThought.element.remove(); closeInspector(); updateStats(); save(); }
         function changeType(t) { selectedThought.type = t; selectedThought.renderTypeView(); selectedThought.updateDOM(); save(); }
@@ -534,6 +535,17 @@
         function openLightbox(src) { document.getElementById('lightbox-img').src = src; document.getElementById('lightbox').classList.remove('hidden'); document.getElementById('lightbox').classList.add('flex'); }
         function closeLightbox() { document.getElementById('lightbox').classList.add('hidden'); document.getElementById('lightbox').classList.remove('flex'); }
 
+        // Keyboard Shortcuts
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete') {
+                // Don't delete if user is typing in an input or textarea
+                if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+                if (selectedThought) {
+                    openProjectModal('delete_node');
+                }
+            }
+        });
+
         // Calendar Logic
         function changeMonth(dir) { calDate.setMonth(calDate.getMonth() + dir); renderCalendar(); }
         function renderCalendar() {
@@ -614,6 +626,11 @@
                 if (projects.length <= 1) return openProjectModal('limit_min');
                 titleEl.innerText = "Delete Space"; input.style.display = 'none';
                 btn.onclick = () => { projects = projects.filter(x => x.id !== activeProjectId); activeProjectId = projects[0].id; save(); loadProject(activeProjectId); closeModal(); };
+            } else if (type === 'delete_node') {
+                titleEl.innerText = "Delete Thought?"; 
+                descEl.innerText = "This action cannot be undone.";
+                input.style.display = 'none';
+                btn.onclick = () => { deleteThought(); closeModal(); };
             } else {
                 titleEl.innerText = "Limit Reached"; input.style.display = 'none'; cancelBtn.style.display = 'none'; btn.onclick = closeModal;
             }
