@@ -666,7 +666,19 @@
                 guide.style.opacity = '0';
             }
         }
-        document.getElementById('import-input').onchange = (e) => { const r = new FileReader(); r.onload = (ev) => { projects = JSON.parse(ev.target.result); save(); loadProject(projects[0].id); }; r.readAsText(e.target.files[0]); };
+        document.getElementById('import-input').onchange = (e) => { 
+            const r = new FileReader(); 
+            r.onload = (ev) => { 
+                try {
+                    const data = JSON.parse(ev.target.result); 
+                    if(Array.isArray(data)) {
+                        localStorage.setItem(KEY, JSON.stringify(data)); 
+                        location.reload(); 
+                    } else { alert("Invalid backup file."); }
+                } catch(e) { alert("Error parsing file."); }
+            }; 
+            r.readAsText(e.target.files[0]); 
+        };
 
         window.onload = () => { canvas.width = 5000; canvas.height = 5000; loadProject(activeProjectId); requestAnimationFrame(loop); };
     </script>
