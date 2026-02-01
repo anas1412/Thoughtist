@@ -85,6 +85,13 @@
         #paint-canvas { background: #000; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); cursor: crosshair; touch-action: none; }
         .type-btn { padding: 8px; border-radius: 12px; font-size: 9px; font-weight: 800; text-transform: uppercase; background: rgba(255,255,255,0.03); border: 1px solid transparent; transition: 0.2s; color: #475569; }
         .type-btn.active { background: rgba(99, 102, 241, 0.1); border-color: var(--accent); color: white; }
+        
+        .pri-btn.active#pri-none { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.3); color: white; }
+        .pri-btn.active#pri-low { background: rgba(59, 130, 246, 0.3); border-color: rgb(59, 130, 246); color: white; }
+        .pri-btn.active#pri-medium { background: rgba(234, 179, 8, 0.3); border-color: rgb(234, 179, 8); color: white; }
+        .pri-btn.active#pri-high { background: rgba(249, 115, 22, 0.3); border-color: rgb(249, 115, 22); color: white; }
+        .pri-btn.active#pri-urgent { background: rgba(239, 68, 68, 0.3); border-color: rgb(239, 68, 68); color: white; }
+
         .active-tab { background: var(--accent); color: white; box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.4); }
         #modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); z-index: 10000; display: none; align-items: center; justify-content: center; }
         .modal-box { width: 420px; padding: 40px; border-radius: 40px; border: 1px solid rgba(255,255,255,0.1); }
@@ -228,6 +235,17 @@
             <textarea id="edit-desc" rows="2" maxlength="150" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-indigo-500 text-white" placeholder="Description"></textarea>
             <input type="date" id="edit-date" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-indigo-500 text-white font-mono uppercase">
             
+            <div class="space-y-2">
+                <label class="text-[9px] uppercase font-bold tracking-widest text-slate-500 ml-1">Priority</label>
+                <div class="grid grid-cols-5 gap-1">
+                    <button onclick="setPriority('none')" id="pri-none" class="pri-btn bg-white/5 border border-white/10 rounded-lg py-2 text-[8px] font-bold uppercase text-slate-400 hover:bg-white/10 transition-colors">None</button>
+                    <button onclick="setPriority('low')" id="pri-low" class="pri-btn bg-blue-500/10 border border-blue-500/20 rounded-lg py-2 text-[8px] font-bold uppercase text-blue-400 hover:bg-blue-500/20 transition-colors">Low</button>
+                    <button onclick="setPriority('medium')" id="pri-medium" class="pri-btn bg-yellow-500/10 border border-yellow-500/20 rounded-lg py-2 text-[8px] font-bold uppercase text-yellow-400 hover:bg-yellow-500/20 transition-colors">Med</button>
+                    <button onclick="setPriority('high')" id="pri-high" class="pri-btn bg-orange-500/10 border border-orange-500/20 rounded-lg py-2 text-[8px] font-bold uppercase text-orange-400 hover:bg-orange-500/20 transition-colors">High</button>
+                    <button onclick="setPriority('urgent')" id="pri-urgent" class="pri-btn bg-red-500/10 border border-red-500/20 rounded-lg py-2 text-[8px] font-bold uppercase text-red-400 hover:bg-red-500/20 transition-colors">Urgent</button>
+                </div>
+            </div>
+            
             <div id="type-specific-area" class="pt-4 border-t border-white/5">
                 <div id="area-text" class="hidden"><textarea id="edit-content" rows="6" maxlength="500" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-indigo-500 text-white" placeholder="Markdown supported..."></textarea></div>
                 <div id="area-tasks" class="hidden space-y-3"><div id="task-list"></div><button onclick="addTask()" class="w-full py-2 border border-dashed border-white/10 rounded-xl text-[10px] uppercase font-bold text-slate-500 hover:text-white">+ Add Task</button></div>
@@ -322,6 +340,7 @@
                 this.table = data.table || [["", ""], ["", ""]];
                 this.drawing = data.drawing || null;
                 this.date = data.date || "";
+                this.priority = data.priority || 'none';
                 this.order = data.order || 0;
                 this.isDragging = false;
                 this.element = this.createDOM();
@@ -350,7 +369,10 @@
                 if (this.type === 'table') inner = `<table class="thought-table mt-1">${this.table.slice(0, 4).map(r => `<tr>${r.slice(0, 2).map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</table>`;
                 if (this.type === 'image' && this.image) inner = `<div class="mt-2 relative group"><img src="${this.image}" class="w-full rounded-xl border border-white/10 max-h-[160px] object-cover bg-black/50" /><button onclick="openLightbox('${this.image}')" class="expand-img absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"><i data-lucide="maximize-2"></i></button></div>`;
 
-                this.element.innerHTML = `<div class="thought-bulb-content flex flex-col gap-3">${this.date ? `<div class="absolute top-4 right-4 text-[9px] font-mono text-indigo-400 border border-indigo-500/30 px-1.5 py-0.5 rounded bg-indigo-500/10">${this.date}</div>` : ''}${this.text ? `<p class="text-[13px] font-bold text-white pr-10">${this.text}</p>` : '<p class="text-[13px] font-bold text-slate-600 italic pr-10">Untitled</p>'}${this.description ? `<p class="text-[10px] text-slate-500 italic">${this.description}</p>` : ''}${inner}<div class="flex flex-wrap gap-1.5 mt-1">${this.tags.map(t => `<span class="tag-pill" style="${getTagStyle(t)}">${t}</span>`).join('')}</div></div>`;
+                const prioColors = { none: 'transparent', low: '#3b82f6', medium: '#eab308', high: '#f97316', urgent: '#ef4444' };
+                const prioIndicator = this.priority !== 'none' ? `<div class="absolute top-4 left-4 w-1.5 h-1.5 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)]" style="background: ${prioColors[this.priority]}; box-shadow: 0 0 10px ${prioColors[this.priority]}88;"></div>` : '';
+
+                this.element.innerHTML = `<div class="thought-bulb-content flex flex-col gap-3">${prioIndicator}${this.date ? `<div class="absolute top-4 right-4 text-[9px] font-mono text-indigo-400 border border-indigo-500/30 px-1.5 py-0.5 rounded bg-indigo-500/10">${this.date}</div>` : ''}${this.text ? `<p class="text-[13px] font-bold text-white pr-10">${this.text}</p>` : '<p class="text-[13px] font-bold text-slate-600 italic pr-10">Untitled</p>'}${this.description ? `<p class="text-[10px] text-slate-500 italic">${this.description}</p>` : ''}${inner}<div class="flex flex-wrap gap-1.5 mt-1">${this.tags.map(t => `<span class="tag-pill" style="${getTagStyle(t)}">${t}</span>`).join('')}</div></div>`;
                 refreshIcons();
             }
 
@@ -410,8 +432,14 @@
                 document.getElementById('edit-content').value = this.content || ""; 
                 document.getElementById('edit-date').value = this.date || "";
                 this.renderTypeView(); this.renderTags(); 
+                this.renderPriority();
             }
             
+            renderPriority() {
+                document.querySelectorAll('.pri-btn').forEach(b => b.classList.remove('active'));
+                document.getElementById('pri-' + this.priority).classList.add('active');
+            }
+
             renderTypeView() {
                 document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active')); document.getElementById('btn-' + this.type).classList.add('active');
                 ['text', 'tasks', 'paint', 'table', 'image'].forEach(t => document.getElementById('area-'+t).classList.add('hidden')); document.getElementById('area-' + this.type).classList.remove('hidden');
@@ -458,12 +486,14 @@
                 x: (window.innerWidth/2 - transform.x)/transform.scale, 
                 y: (window.innerHeight/2 - transform.y)/transform.scale, 
                 order: thoughts.length,
+                priority: 'none',
                 ...data
             }); 
             thoughts.push(n); updateStats(); save();
             setTimeout(() => n.openInspector(), 50); // Slight delay to ensure DOM is ready
         }
         function deleteThought() { thoughts = thoughts.filter(n => n.id !== selectedThought.id); selectedThought.element.remove(); closeInspector(); updateStats(); save(); }
+        function setPriority(p) { if(selectedThought) { selectedThought.priority = p; selectedThought.renderPriority(); selectedThought.updateDOM(); save(); } }
         function changeType(t) { selectedThought.type = t; selectedThought.renderTypeView(); selectedThought.updateDOM(); save(); }
         function addTask() { if(selectedThought){ selectedThought.tasks.push({ text: "Task", done: false }); selectedThought.renderTasks(); selectedThought.updateDOM(); save(); }}
         function editTask(i,v) { selectedThought.tasks[i].text = v; save(); selectedThought.updateDOM(); }
@@ -496,7 +526,7 @@
         function save() { 
             try {
                 const p = projects.find(p => p.id === activeProjectId); 
-                p.nodes = thoughts.map(n => ({ id: n.id, x: n.x, y: n.y, text: n.text, description: n.description, tags: n.tags, status: n.status, tasks: n.tasks, drawing: n.drawing, table: n.table, order: n.order, type: n.type, content: n.content, date: n.date, image: n.image })); 
+                p.nodes = thoughts.map(n => ({ id: n.id, x: n.x, y: n.y, text: n.text, description: n.description, tags: n.tags, status: n.status, tasks: n.tasks, drawing: n.drawing, table: n.table, order: n.order, type: n.type, content: n.content, date: n.date, image: n.image, priority: n.priority })); 
                 localStorage.setItem(KEY, JSON.stringify(projects)); 
             } catch (e) {
                 if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
@@ -718,6 +748,8 @@
             const isKanban = document.body.classList.contains('view-kanban');
             const isCalendar = document.body.classList.contains('view-calendar');
 
+            const priorityWeight = { urgent: 4, high: 3, medium: 2, low: 1, none: 0 };
+
             // Calendar Sidebar Pre-calculation
             let unscheduledPos = new Map();
             if (isCalendar) {
@@ -726,7 +758,7 @@
                 if (sb && sbContent) {
                     const sbRect = sb.getBoundingClientRect();
                     const sbContentRect = sbContent.getBoundingClientRect();
-                    const unscheduled = thoughts.filter(x => !x.date).sort((a,b) => a.order - b.order);
+                    const unscheduled = thoughts.filter(x => !x.date).sort((a,b) => (priorityWeight[b.priority] || 0) - (priorityWeight[a.priority] || 0) || a.order - b.order);
                     let currentY = 0;
                     const gap = 20;
                     unscheduled.forEach(un => {
@@ -753,7 +785,7 @@
                         n.element.style.opacity = '1';
                         n.element.style.pointerEvents = 'auto';
                         let tx = window.innerWidth * 0.16; if (n.status === 'doing') tx = window.innerWidth * 0.5; if (n.status === 'done') tx = window.innerWidth * 0.84;
-                        const col = thoughts.filter(x => x.status === n.status).sort((a,b) => a.order - b.order);
+                        const col = thoughts.filter(x => x.status === n.status).sort((a,b) => (priorityWeight[b.priority] || 0) - (priorityWeight[a.priority] || 0) || a.order - b.order);
                         let ty = 280; for (let other of col) { if (other.id === n.id) break; ty += (other.element.offsetHeight || 120) + 24; }
                         n.x += (tx - n.x) * 0.15; n.y += (ty + ((n.element.offsetHeight || 120)/2) - n.y) * 0.15;
                     } 
@@ -809,11 +841,27 @@
                     else if (p.physics) {
                         n.element.style.opacity = '1';
                         n.element.style.pointerEvents = 'auto';
-                        n.vx += (window.innerWidth/2 - n.x) * GRAVITY; n.vy += (window.innerHeight/2 - n.y) * GRAVITY;
+                        
+                        // Intelligent Centering: Higher priority items gravitate more strongly to the center
+                        const prioLevel = priorityWeight[n.priority] || 0;
+                        const gravityMultiplier = 1 + (prioLevel * 0.5); 
+                        targetScale = 1 + (prioLevel * 0.05);
+
+                        n.vx += (window.innerWidth/2 - n.x) * (GRAVITY * gravityMultiplier); 
+                        n.vy += (window.innerHeight/2 - n.y) * (GRAVITY * gravityMultiplier);
+
                         thoughts.forEach((other, j) => {
                             if (i === j) return;
                             const dx = n.x - other.x, dy = n.y - other.y, distSq = dx*dx + dy*dy || 0.1, d = Math.sqrt(distSq);
-                            const force = Math.min(REPULSION / distSq, 20); n.vx += (dx / d) * force; n.vy += (dy / d) * force;
+                            
+                            // Intelligent Repulsion: Urgent items push others away slightly more
+                            const otherPrio = priorityWeight[other.priority] || 0;
+                            const combinedPrio = prioLevel + otherPrio;
+                            const repulsionMultiplier = 1 + (combinedPrio * 0.1);
+                            
+                            const force = Math.min((REPULSION * repulsionMultiplier) / distSq, 20); 
+                            n.vx += (dx / d) * force; n.vy += (dy / d) * force;
+
                             if (n.tags.some(t => other.tags.includes(t)) && n.tags.length > 0) {
                                 n.vx -= dx * ATTRACTION; n.vy -= dy * ATTRACTION;
                                 ctx.beginPath(); ctx.moveTo(n.x, n.y); ctx.lineTo(other.x, other.y); ctx.strokeStyle = 'rgba(99, 102, 241, 0.15)'; ctx.stroke();
@@ -825,6 +873,9 @@
                 
                 // Smooth Scale
                 n.scale += (targetScale - n.scale) * 0.1;
+                
+                // Priority Layering: Higher priority items show in front. Dragging item is always on top.
+                n.element.style.zIndex = n.isDragging ? 1000 : (20 + (priorityWeight[n.priority] || 0));
                 
                 n.element.style.transform = `translate3d(${n.x - 140}px, ${n.y - ((n.element.offsetHeight || 120)/2)}px, 0) scale(${n.scale})`;
             });
