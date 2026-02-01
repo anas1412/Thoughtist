@@ -671,6 +671,14 @@
         });
         window.addEventListener('mousemove', (e) => { if (isPanning) { transform.x += (e.clientX - lastMousePos.x); transform.y += (e.clientY - lastMousePos.y); lastMousePos = { x: e.clientX, y: e.clientY }; updateWorldTransform(); } });
         window.addEventListener('mouseup', () => isPanning = false);
+        
+        window.addEventListener('click', (e) => {
+            // Close inspector if clicking background (not on a thought, inspector, or UI)
+            if (!e.target.closest('.thought-bulb, #inspector, .ui-layer, .modal-box, .glass, .expand-img')) {
+                closeInspector();
+            }
+        });
+
         window.addEventListener('wheel', (e) => {
             if (e.target.closest('#inspector')) return; // Prevent workspace zoom when scrolling inspector
             if (document.body.classList.contains('view-kanban')) {
