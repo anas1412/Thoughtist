@@ -46,10 +46,6 @@ Seamlessly switch between two mental states:
 
 ## 📥 Getting Started
 
-1. Download the `thoughtist.html` file.
-2. Open it in any modern web browser (Chrome, Brave, Firefox, or Edge recommended).
-3. Start capturing thoughts.
-
 **Interactions:**
 - **Double Click Node:** Open Editor.
 - **Drag Node:** Move in space or change Kanban status.
