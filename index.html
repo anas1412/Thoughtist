@@ -329,7 +329,7 @@
                 div.className = 'thought-bulb';
                 div.addEventListener('mousedown', (e) => this.onStart(e));
                 div.addEventListener('click', (e) => { 
-                    if (!e.target.closest('.checkbox') && !e.target.closest('.expand-img') && !this.isDragging) this.openInspector(); 
+                    if (!e.target.closest('.checkbox') && !e.target.closest('.expand-img') && !this.dragged) this.openInspector(); 
                 });
                 world.appendChild(div);
                 return div;
@@ -352,10 +352,20 @@
 
             onStart(e) {
                 if (e.button !== 0 || e.target.closest('.checkbox') || e.target.closest('.expand-img')) return;
-                e.stopPropagation(); this.isDragging = true; this.element.classList.add('dragging');
+                e.stopPropagation(); 
+                this.isDragging = true; 
+                this.dragged = false; // Reset drag flag
+                this.element.classList.add('dragging');
                 const startX = (e.clientX - transform.x) / transform.scale, startY = (e.clientY - transform.y) / transform.scale;
+                const mStartX = e.clientX, mStartY = e.clientY; // Screen coordinates
                 const offX = startX - this.x, offY = startY - this.y;
-                const move = (ev) => { this.x = (ev.clientX - transform.x) / transform.scale - offX; this.y = (ev.clientY - transform.y) / transform.scale - offY; };
+                
+                const move = (ev) => { 
+                    const dist = Math.hypot(ev.clientX - mStartX, ev.clientY - mStartY);
+                    if (dist > 5) this.dragged = true; // Flag as drag if mouse moved
+                    this.x = (ev.clientX - transform.x) / transform.scale - offX; 
+                    this.y = (ev.clientY - transform.y) / transform.scale - offY; 
+                };
                 const up = (ev) => {
                     this.isDragging = false; this.element.classList.remove('dragging');
                     
