@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thoughtist // Spatial Thinking</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+        
+        :root { --accent: #6366f1; --bg: #020408; }
+        body { 
+            overflow: hidden; background: var(--bg); color: #e2e8f0; 
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            width: 100vw; height: 100vh;
+        }
+
+        #viewport {
+            position: absolute; inset: 0;
+            z-index: 1; overflow: hidden;
+            background: radial-gradient(circle at 50% 50%, #0f172a 0%, #020408 100%);
+        }
+
+        #world {
+            position: absolute; transform-origin: 0 0; will-change: transform;
+        }
+
+        .node {
+            position: absolute; user-select: none; touch-action: none;
+            will-change: transform; z-index: 10; cursor: grab;
+            width: 260px;
+        }
+
+        .node-content {
+            background: rgba(15, 23, 42, 0.94);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            padding: 24px; border-radius: 32px;
+        }
+
+        .node.dragging .node-content { border-color: var(--accent); box-shadow: 0 0 40px rgba(99, 102, 241, 0.4); }
+
+        /* Kanban Visuals */
+        .kanban-overlay {
+            position: absolute; inset: 0; display: flex; 
+            pointer-events: none; opacity: 0; transition: opacity 0.4s;
+            z-index: 80; 
+        }
+        body.view-kanban .kanban-overlay { opacity: 1; }
+        .col-section { flex: 1; border-right: 1px dashed rgba(255,255,255,0.05); }
+        .col-header-box { 
+            height: 60px; margin-top: 140px; display: flex; align-items: center; justify-content: center;
+            background: rgba(2, 4, 8, 0.6); backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .col-label { font-size: 11px; font-weight: 900; color: var(--accent); letter-spacing: 0.4em; text-transform: uppercase; }
+
+        .glass { background: rgba(10, 10, 15, 0.85); backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.1); }
+        .tag-pill { font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; }
+        .tag-input-wrap { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); }
+        .tag-input-wrap input { background: transparent; border: none; outline: none; font-size: 12px; flex: 1; color: white; min-width: 60px; }
+        
+        .checkbox { width: 16px; height: 16px; border: 1.5px solid rgba(255,255,255,0.2); border-radius: 4px; flex-shrink: 0; position: relative; cursor: pointer; }
+        .checkbox.checked { background: var(--accent); border-color: var(--accent); }
+        .checkbox.checked::after { content: '✓'; position: absolute; font-size: 10px; left: 2px; top: -1px; color: white; }
+
+        #connection-canvas { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+        .active-tab { background: var(--accent); color: white; box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.4); }
+
+        #project-menu { transform: translateY(-10px); opacity: 0; transition: all 0.2s ease-out; pointer-events: none; }
+        #project-menu.active { transform: translateY(0); opacity: 1; pointer-events: auto; }
+
+        #modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+            z-index: 1000; display: none; align-items: center; justify-content: center;
+        }
+        .modal-box { width: 420px; padding: 40px; border-radius: 40px; border: 1px solid rgba(255,255,255,0.1); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="view-spatial">
+
+    <div id="viewport">
+        <div id="world">
+            <canvas id="connection-canvas"></canvas>
+        </div>
+    </div>
+
+    <div class="kanban-overlay">
+        <div class="col-section"><div class="col-header-box"><span class="col-label">Todo</span></div></div>
+        <div class="col-section"><div class="col-header-box"><span class="col-label">Doing</span></div></div>
+        <div class="col-section" style="border:none"><div class="col-header-box"><span class="col-label">Done</span></div></div>
+    </div>
+
+    <!-- UI: Header -->
+    <div class="fixed top-8 left-8 right-8 z-[100] flex items-center justify-between pointer-events-none">
+        <div class="pointer-events-auto flex items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tighter text-white">Thoughtist</h1>
+                <div class="flex items-center gap-2 mt-1">
+                    <p id="proj-title" class="text-[10px] uppercase tracking-widest text-indigo-400 font-black truncate max-w-[120px]">Project Name</p>
+                    <button onclick="toggleProjectMenu()" class="p-1 rounded-md bg-white/5 hover:bg-white/10 transition-colors">
+                        <i data-lucide="sliders-horizontal" class="w-3 h-3 text-white"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="project-menu" class="glass p-2 rounded-2xl flex items-center gap-1">
+                <button onclick="openProjectModal('rename')" class="p-2 hover:bg-white/5 rounded-xl transition-colors text-slate-300"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>
+                <button onclick="moveProject(-1)" class="p-2 hover:bg-white/5 rounded-xl transition-colors text-slate-300"><i data-lucide="chevron-left" class="w-3.5 h-3.5"></i></button>
+                <button onclick="moveProject(1)" class="p-2 hover:bg-white/5 rounded-xl transition-colors text-slate-300"><i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></button>
+                <div class="w-[1px] h-4 bg-white/10 mx-1"></div>
+                <button onclick="openProjectModal('delete')" class="p-2 hover:bg-red-500/10 rounded-xl transition-colors text-red-500"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+            </div>
+        </div>
+        <div id="project-tabs" class="flex items-center gap-2 p-1.5 bg-black/40 rounded-2xl border border-white/10 pointer-events-auto overflow-x-auto no-scrollbar max-w-[40%]"></div>
+        <div class="flex gap-2 pointer-events-auto">
+            <button onclick="addNode()" class="glass py-3 px-5 rounded-2xl flex items-center gap-3 hover:bg-white/5 transition-all">
+                <i data-lucide="plus" class="w-4 h-4 text-indigo-400"></i>
+                <span class="text-xs font-bold uppercase tracking-wider">New Thought</span>
+            </button>
+            <button onclick="toggleView()" class="glass py-3 px-5 rounded-2xl flex items-center gap-3 hover:bg-white/5 transition-all">
+                <i data-lucide="layout" class="w-4 h-4 text-purple-400"></i>
+                <span id="view-btn-text" class="text-xs font-bold uppercase tracking-wider">Kanban Mode</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- UI: Inspector -->
+    <div id="inspector" class="fixed top-[120px] right-8 z-[200] w-80 glass rounded-[2.5rem] p-8 hidden shadow-2xl overflow-y-auto max-h-[70vh]">
+        <div class="flex justify-between items-center mb-8">
+            <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500">Node Editor</h3>
+            <button onclick="closeInspector()" class="text-slate-500 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div class="space-y-6">
+            <input type="text" id="edit-text" maxlength="30" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-indigo-500" placeholder="Thought Title">
+            <textarea id="edit-desc" rows="3" maxlength="150" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-indigo-500" placeholder="Add description..."></textarea>
+            <div id="edit-tasks" class="space-y-2"></div>
+            <button onclick="addTask()" class="w-full py-2 rounded-xl border border-dashed border-white/20 text-[10px] uppercase font-bold text-slate-400 hover:bg-white/5">+ Add Task</button>
+            <div class="tag-input-wrap" id="tag-input-container"><input type="text" id="tag-field" placeholder="Add tag..."></div>
+            <button onclick="deleteNode()" class="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest">Delete Thought</button>
+        </div>
+    </div>
+
+    <div id="modal-overlay">
+        <div class="modal-box glass text-center">
+            <h2 id="modal-title" class="text-xl font-bold mb-2 text-white"></h2>
+            <p id="modal-desc" class="text-xs text-slate-400 mb-8 uppercase tracking-widest leading-relaxed"></p>
+            <input type="text" id="modal-input" class="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-sm outline-none mb-8 focus:border-indigo-500 text-white">
+            <div class="flex gap-4">
+                <button id="modal-cancel-btn" onclick="closeModal()" class="flex-1 py-4 text-xs font-bold uppercase tracking-widest bg-white/5 rounded-2xl">Cancel</button>
+                <button id="modal-confirm-btn" class="flex-1 py-4 text-xs font-bold uppercase tracking-widest bg-indigo-500 rounded-2xl">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI: Bottom Bar -->
+    <div class="fixed bottom-8 left-1/2 -translate-x-1/2 glass px-8 py-4 rounded-full z-[100] flex gap-8 items-center text-[10px] uppercase font-bold tracking-widest text-slate-500">
+        <div class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]"></span> <span class="text-white"><span id="node-count">0</span> Thoughts</span></div>
+        <div class="h-4 w-[1px] bg-white/10"></div>
+        <button onclick="togglePhysics()" id="phys-btn" class="flex items-center gap-2 transition-all">
+            <i data-lucide="zap" class="w-3.5 h-3.5"></i> <span id="phys-status">Physics On</span>
+        </button>
+        <div class="h-4 w-[1px] bg-white/10"></div>
+        <button onclick="exportData()" class="hover:text-white flex items-center gap-2"><i data-lucide="download" class="w-3 h-3"></i> Export</button>
+        <label class="flex items-center gap-2 cursor-pointer hover:text-white">
+            <i data-lucide="upload" class="w-3 h-3"></i> Import <input type="file" id="import-input" class="hidden" accept=".json">
+        </label>
+        <div class="h-4 w-[1px] bg-white/10"></div>
+        <button onclick="openProjectModal('new')" class="text-indigo-400 hover:text-white">+ New Project (<span id="proj-slots">0</span>/8)</button>
+    </div>
+
+    <script>
+        let projects = JSON.parse(localStorage.getItem('thoughtist_Final_v3')) || [
+            { id: 'p1', name: 'General Space', nodes: [], mode: 'spatial', physics: true }
+        ];
+        let activeProjectId = projects[0].id;
+        let nodes = [];
+        let selectedNode = null;
+
+        let transform = { x: 0, y: 0, scale: 1 };
+        const viewport = document.getElementById('viewport');
+        const world = document.getElementById('world');
+        const canvas = document.getElementById('connection-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Physics Logic Constants
+        const DAMPING = 0.9;
+        const REPULSION_CONSTANT = 35000; // Stronger base for better spacing
+        const SPRING_STRENGTH = 0.02; // Strength of tag attraction
+        const CENTER_GRAVITY = 0.004;
+
+        class ThoughtNode {
+            constructor(data) {
+                this.id = data.id || Math.random();
+                this.x = data.x || window.innerWidth / 2;
+                this.y = data.y || window.innerHeight / 2;
+                this.vx = 0; this.vy = 0;
+                this.text = data.text || "New Idea";
+                this.description = data.description || "";
+                this.tags = data.tags || [];
+                this.status = data.status || 'todo';
+                this.tasks = data.tasks || [];
+                this.order = data.order || 0;
+                this.isDragging = false;
+                this.element = this.createDOM();
+                this.updateDOM();
+            }
+
+            createDOM() {
+                const div = document.createElement('div');
+                div.className = 'node';
+                div.addEventListener('mousedown', (e) => this.onStart(e));
+                div.addEventListener('click', (e) => {
+                    if (!e.target.closest('.checkbox') && !this.isDragging) this.openInspector();
+                });
+                world.appendChild(div);
+                return div;
+            }
+
+            updateDOM() {
+                const done = this.tasks.filter(t => t.done).length;
+                const prog = this.tasks.length ? (done / this.tasks.length) * 100 : 0;
+                this.element.innerHTML = `
+                    <div class="node-content flex flex-col gap-3">
+                        <p class="text-[13px] font-bold leading-tight text-white">${this.text}</p>
+                        ${this.description ? `<p class="text-[11px] text-slate-400 leading-relaxed font-medium">${this.description}</p>` : ''}
+                        ${this.tasks.length ? `<div class="h-1 w-full bg-white/10 rounded-full overflow-hidden mt-1"><div class="h-full bg-indigo-500 transition-all duration-500" style="width:${prog}%"></div></div>` : ''}
+                        <div class="flex flex-wrap gap-1 mt-1">${this.tags.map(t => `<span class="tag-pill" style="${getTagStyle(t)}">${t}</span>`).join('')}</div>
+                    </div>
+                `;
+            }
+
+            onStart(e) {
+                if (e.button !== 0 || e.target.closest('.checkbox')) return;
+                e.stopPropagation();
+                this.isDragging = true;
+                this.element.classList.add('dragging');
+                
+                const startX = (e.clientX - transform.x) / transform.scale;
+                const startY = (e.clientY - transform.y) / transform.scale;
+                const offsetX = startX - this.x;
+                const offsetY = startY - this.y;
+
+                const move = (ev) => {
+                    this.x = (ev.clientX - transform.x) / transform.scale - offsetX;
+                    this.y = (ev.clientY - transform.y) / transform.scale - offsetY;
+                    this.vx = 0; this.vy = 0;
+                };
+
+                const up = () => {
+                    this.isDragging = false; this.element.classList.remove('dragging');
+                    if (document.body.classList.contains('view-kanban')) {
+                        if (this.x < window.innerWidth * 0.33) this.status = 'todo';
+                        else if (this.x < window.innerWidth * 0.66) this.status = 'doing';
+                        else this.status = 'done';
+                        this.reorderColumn(this.status);
+                    }
+                    window.removeEventListener('mousemove', move);
+                    window.removeEventListener('mouseup', up);
+                    save();
+                };
+                window.addEventListener('mousemove', move);
+                window.addEventListener('mouseup', up);
+            }
+
+            reorderColumn(status) {
+                const columnNodes = nodes.filter(n => n.status === status).sort((a, b) => a.y - b.y);
+                columnNodes.forEach((n, idx) => n.order = idx);
+            }
+
+            openInspector() {
+                selectedNode = this;
+                document.getElementById('inspector').classList.remove('hidden');
+                document.getElementById('edit-text').value = this.text;
+                document.getElementById('edit-desc').value = this.description;
+                this.renderTags(); this.renderTasks();
+            }
+
+            renderTags() {
+                const wrap = document.getElementById('tag-input-container');
+                wrap.querySelectorAll('.tag-pill').forEach(el => el.remove());
+                this.tags.forEach((t, i) => {
+                    const span = document.createElement('span');
+                    span.className = 'tag-pill';
+                    span.style = getTagStyle(t);
+                    span.innerHTML = `${t} <i data-lucide="x" class="w-3 h-3 cursor-pointer" onclick="removeTag(${i})"></i>`;
+                    wrap.insertBefore(span, document.getElementById('tag-field'));
+                });
+                lucide.createIcons();
+            }
+
+            renderTasks() {
+                const area = document.getElementById('edit-tasks');
+                area.innerHTML = this.tasks.map((t, i) => `
+                    <div class="flex items-center gap-3">
+                        <div class="checkbox ${t.done ? 'checked' : ''}" onclick="toggleTask(${this.id}, ${i}); selectedNode.renderTasks();"></div>
+                        <input type="text" value="${t.text}" oninput="editTask(${i}, this.value)" class="flex-1 bg-white/5 border border-white/10 rounded-xl p-2 text-xs outline-none">
+                        <button onclick="removeTask(${i})" class="text-red-400"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
+                `).join('');
+                lucide.createIcons();
+            }
+        }
+
+        // Viewport Control
+        let isPanning = false;
+        let lastMousePos = { x: 0, y: 0 };
+
+        viewport.addEventListener('mousedown', (e) => {
+            const isKanban = document.body.classList.contains('view-kanban');
+            if (!isKanban && (e.button === 1 || (e.button === 0 && e.altKey))) {
+                isPanning = true;
+                lastMousePos = { x: e.clientX, y: e.clientY };
+                e.preventDefault();
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isPanning) return;
+            transform.x += (e.clientX - lastMousePos.x);
+            transform.y += (e.clientY - lastMousePos.y);
+            lastMousePos = { x: e.clientX, y: e.clientY };
+            updateWorldTransform();
+        });
+
+        window.addEventListener('mouseup', () => isPanning = false);
+
+        viewport.addEventListener('wheel', (e) => {
+            const isKanban = document.body.classList.contains('view-kanban');
+            if (isKanban) {
+                transform.y -= e.deltaY;
+                transform.x = 0; transform.scale = 1;
+            } else {
+                const zoomSpeed = 0.001;
+                const delta = -e.deltaY;
+                const oldScale = transform.scale;
+                const newScale = Math.min(Math.max(0.1, oldScale + delta * zoomSpeed), 2);
+                const worldX = (e.clientX - transform.x) / oldScale;
+                const worldY = (e.clientY - transform.y) / oldScale;
+                transform.scale = newScale;
+                transform.x = e.clientX - worldX * newScale;
+                transform.y = e.clientY - worldY * newScale;
+            }
+            updateWorldTransform();
+        }, { passive: false });
+
+        function updateWorldTransform() { world.style.transform = `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`; }
+
+        function init() {
+            lucide.createIcons();
+            canvas.width = 5000; canvas.height = 5000;
+            document.getElementById('tag-field').addEventListener('keydown', e => {
+                const val = e.target.value.trim().substring(0, 12);
+                if ((e.key === 'Enter' || e.key === ',') && val) {
+                    if (!selectedNode.tags.includes(val)) {
+                        selectedNode.tags.push(val); e.target.value = '';
+                        selectedNode.renderTags(); selectedNode.updateDOM(); save();
+                    }
+                }
+            });
+            loadProject(activeProjectId);
+            requestAnimationFrame(loop);
+        }
+
+        function loop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const p = projects.find(x => x.id === activeProjectId);
+            const isKanban = document.body.classList.contains('view-kanban');
+            
+            nodes.forEach((n, i) => {
+                if (!n.isDragging) {
+                    if (isKanban) {
+                        let tx = window.innerWidth * 0.16;
+                        if (n.status === 'doing') tx = window.innerWidth * 0.5;
+                        if (n.status === 'done') tx = window.innerWidth * 0.84;
+                        const colNodes = nodes.filter(x => x.status === n.status).sort((a,b) => a.order - b.order);
+                        let ty = 280;
+                        for (let other of colNodes) {
+                            if (other.id === n.id) break;
+                            ty += other.element.offsetHeight + 24;
+                        }
+                        n.x += (tx - n.x) * 0.15; n.y += (ty + (n.element.offsetHeight/2) - n.y) * 0.15;
+                    } else if (p.physics) {
+                        // Center Gravity
+                        n.vx += (window.innerWidth/2 - n.x) * CENTER_GRAVITY;
+                        n.vy += (window.innerHeight/2 - n.y) * CENTER_GRAVITY;
+
+                        nodes.forEach((other, j) => {
+                            if (i === j) return;
+                            const dx = n.x - other.x, dy = n.y - other.y;
+                            const d = Math.sqrt(dx*dx + dy*dy) || 1;
+                            
+                            // Universal Repulsion (Electrostatic Style)
+                            const repulsionForce = REPULSION_CONSTANT / (d * d);
+                            n.vx += (dx / d) * repulsionForce;
+                            n.vy += (dy / d) * repulsionForce;
+
+                            // Selective Tag Gravity (Spring Style)
+                            if (n.tags.some(t => other.tags.includes(t))) {
+                                n.vx -= dx * SPRING_STRENGTH;
+                                n.vy -= dy * SPRING_STRENGTH;
+                                ctx.beginPath(); ctx.moveTo(n.x, n.y); ctx.lineTo(other.x, other.y);
+                                ctx.strokeStyle = 'rgba(99, 102, 241, 0.15)'; ctx.lineWidth = 1; ctx.stroke();
+                            }
+                        });
+                        n.vx *= DAMPING; n.vy *= DAMPING;
+                        n.x += n.vx; n.y += n.vy;
+                    }
+                }
+                n.element.style.transform = `translate3d(${n.x - 130}px, ${n.y - (n.element.offsetHeight/2)}px, 0)`;
+            });
+            requestAnimationFrame(loop);
+        }
+
+        // UI Handlers
+        function openProjectModal(type) {
+            const p = projects.find(x => x.id === activeProjectId);
+            const overlay = document.getElementById('modal-overlay');
+            const title = document.getElementById('modal-title');
+            const desc = document.getElementById('modal-desc');
+            const input = document.getElementById('modal-input');
+            const btn = document.getElementById('modal-confirm-btn');
+            const cancelBtn = document.getElementById('modal-cancel-btn');
+            overlay.style.display = 'flex'; input.style.display = 'block'; cancelBtn.style.display = 'block';
+            if (type === 'rename') {
+                title.innerText = "Rename Workspace"; desc.innerText = "Maximum 15 characters"; input.value = p.name;
+                btn.onclick = () => { p.name = input.value.substring(0, 15) || p.name; save(); loadProject(activeProjectId); closeModal(); };
+            } else if (type === 'new') {
+                if (projects.length >= 8) return openProjectModal('error_limit');
+                title.innerText = "New Workspace"; desc.innerText = "Identity for your thoughts"; input.value = "";
+                btn.onclick = () => { const id = 'p'+Date.now(); projects.push({ id, name: input.value.substring(0, 15) || "Unnamed", nodes: [], mode: 'spatial', physics: true }); save(); loadProject(id); closeModal(); };
+            } else if (type === 'delete') {
+                if (projects.length <= 1) return openProjectModal('error_min');
+                title.innerText = "Delete Space"; desc.innerText = "Are you sure? This will erase all project data."; input.style.display = 'none';
+                btn.onclick = () => { projects = projects.filter(x => x.id !== activeProjectId); activeProjectId = projects[0].id; save(); loadProject(activeProjectId); closeModal(); };
+            } else if (type === 'error_min' || type === 'error_limit') {
+                title.innerText = "Blocked"; desc.innerText = type === 'error_min' ? "Keep at least 1 workspace active." : "Project limit (8) reached."; input.style.display = 'none'; cancelBtn.style.display = 'none';
+                btn.onclick = closeModal;
+            }
+        }
+
+        function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+        function loadProject(id) {
+            nodes.forEach(n => n.element.remove());
+            activeProjectId = id;
+            const p = projects.find(p => p.id === id);
+            nodes = p.nodes.sort((a,b) => a.order - b.order).map(n => new ThoughtNode(n));
+            document.body.className = 'view-' + p.mode;
+            document.getElementById('view-btn-text').innerText = p.mode === 'spatial' ? 'Kanban Mode' : 'Spatial Mode';
+            document.getElementById('proj-title').innerText = p.name;
+            transform = { x: 0, y: 0, scale: 1 }; updateWorldTransform();
+            updatePhysBtn(); renderTabs(); updateStats();
+            document.getElementById('project-menu').classList.remove('active');
+        }
+
+        function save() {
+            const p = projects.find(p => p.id === activeProjectId);
+            p.nodes = nodes.map(n => ({ id: n.id, x: n.x, y: n.y, text: n.text, description: n.description, tags: n.tags, status: n.status, tasks: n.tasks, order: n.order }));
+            localStorage.setItem('thoughtist_Final_v3', JSON.stringify(projects));
+        }
+
+        function togglePhysics() { const p = projects.find(x => x.id === activeProjectId); p.physics = !p.physics; updatePhysBtn(); save(); }
+        function updatePhysBtn() {
+            const p = projects.find(x => x.id === activeProjectId);
+            document.getElementById('phys-status').innerText = p.physics ? "Physics On" : "Physics Off";
+            document.getElementById('phys-btn').className = p.physics ? "text-indigo-400 flex items-center gap-2" : "text-slate-600 flex items-center gap-2";
+        }
+        function toggleProjectMenu() { document.getElementById('project-menu').classList.toggle('active'); lucide.createIcons(); }
+        function moveProject(dir) {
+            const idx = projects.findIndex(x => x.id === activeProjectId);
+            const target = idx + dir;
+            if (target >= 0 && target < projects.length) { [projects[idx], projects[target]] = [projects[target], projects[idx]]; save(); renderTabs(); }
+        }
+        function renderTabs() {
+            document.getElementById('project-tabs').innerHTML = projects.map(p => `
+                <button onclick="loadProject('${p.id}')" class="tab-btn px-4 py-2 rounded-xl text-[10px] uppercase font-black flex-shrink-0 ${p.id === activeProjectId ? 'active-tab' : 'text-slate-500 hover:text-white hover:bg-white/5'}">${p.name}</button>
+            `).join('');
+            document.getElementById('proj-slots').innerText = projects.length;
+        }
+        function getTagStyle(tag) {
+            const hash = tag.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0);
+            const hue = Math.abs(hash % 360);
+            return `background: hsla(${hue}, 70%, 50%, 0.1); color: hsla(${hue}, 90%, 75%, 1); border: 1px solid hsla(${hue}, 70%, 50%, 0.2);`;
+        }
+        function addNode() { nodes.push(new ThoughtNode({ x: (window.innerWidth/2 - transform.x)/transform.scale, y: (window.innerHeight/2 - transform.y)/transform.scale, order: nodes.length })); updateStats(); save(); }
+        function toggleTask(id, i) { const n = nodes.find(x => x.id === id); n.tasks[i].done = !n.tasks[i].done; n.updateDOM(); save(); }
+        function addTask() { selectedNode.tasks.push({ text: "Action item", done: false }); selectedNode.renderTasks(); selectedNode.updateDOM(); save(); }
+        function removeTag(i) { selectedNode.tags.splice(i, 1); selectedNode.renderTags(); selectedNode.updateDOM(); save(); }
+        function toggleView() { const p = projects.find(p => p.id === activeProjectId); p.mode = p.mode === 'spatial' ? 'kanban' : 'spatial'; loadProject(activeProjectId); save(); }
+        function exportData() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(projects)])); a.download = 'thoughtist_archive.json'; a.click(); }
+        document.getElementById('import-input').addEventListener('change', e => {
+            const reader = new FileReader();
+            reader.onload = ev => { projects = JSON.parse(ev.target.result).slice(0, 8); save(); loadProject(projects[0].id); };
+            reader.readAsText(e.target.files[0]);
+        });
+        function editTask(i, v) { selectedNode.tasks[i].text = v; selectedNode.updateDOM(); save(); }
+        function removeTask(i) { selectedNode.tasks.splice(i, 1); selectedNode.renderTasks(); selectedNode.updateDOM(); save(); }
+        function deleteNode() { nodes = nodes.filter(n => n.id !== selectedNode.id); selectedNode.element.remove(); closeInspector(); updateStats(); save(); }
+        function closeInspector() { document.getElementById('inspector').classList.add('hidden'); selectedNode = null; }
+        function updateStats() { document.getElementById('node-count').innerText = nodes.length; }
+        window.onload = init;
+    </script>
+</body>
+</html>
