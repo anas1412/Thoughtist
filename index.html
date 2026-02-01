@@ -506,36 +506,37 @@
         // Paste & Image Logic
         window.addEventListener('paste', (e) => {
             if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-            let foundImage = false;
             
-            for (let index in items) {
-                const item = items[index];
-                if (item.kind === 'file' && item.type.startsWith('image/')) {
-                    foundImage = true;
-                    const blob = item.getAsFile();
-                    const reader = new FileReader();
-                    reader.onload = (event) => { addThought({ type: 'image', image: event.target.result, text: "Image" }); };
-                    reader.readAsDataURL(blob);
-                    break; // Stop after finding an image
+            const clipboardData = e.clipboardData || window.clipboardData;
+            if (!clipboardData) return;
+
+            const items = clipboardData.items;
+            
+            // Priority 1: Images (Files)
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const blob = items[i].getAsFile();
+                    if (blob) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            addThought({ type: 'image', image: event.target.result, text: "Image" });
+                        };
+                        reader.readAsDataURL(blob);
+                        e.preventDefault();
+                        return; // Stop here if image is found
+                    }
                 }
             }
 
-            if (!foundImage) {
-                // Check for text only if no image was found
-                for (let index in items) {
-                    const item = items[index];
-                    if (item.kind === 'string' && item.type === 'text/plain') {
-                        item.getAsString((s) => { 
-                            if(s) {
-                                // Smart Title: First 20 chars or "Note"
-                                const title = s.length < 20 ? s : "Note";
-                                addThought({ type: 'text', text: title, content: s }); 
-                            }
-                        });
-                        break; // Stop after handling text
-                    }
-                }
+            // Priority 2: Text
+            const text = clipboardData.getData('text');
+            if (text && text.trim()) {
+                addThought({ 
+                    type: 'text', 
+                    text: "Note", // Consistent title to avoid content duplication
+                    content: text 
+                });
+                e.preventDefault();
             }
         });
 
