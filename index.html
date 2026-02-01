@@ -307,7 +307,7 @@
                     const done = this.tasks.filter(t => t.done).length;
                     inner = `<div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden mt-1"><div class="h-full bg-indigo-500 transition-all duration-500" style="width:${(done/this.tasks.length)*100}%"></div></div>`;
                 }
-                if (this.type === 'paint' && this.drawing) inner = `<img src="${this.drawing}" class="w-full rounded-xl border border-white/5 mt-1" />`;
+                if (this.type === 'paint' && this.drawing) inner = `<div class="bg-black/40 rounded-xl p-2 mt-1 border border-white/5"><img src="${this.drawing}" class="w-full rounded-lg" style="min-height: 100px; object-fit: contain;" /></div>`;
                 if (this.type === 'table') inner = `<table class="thought-table mt-1">${this.table.slice(0, 4).map(r => `<tr>${r.slice(0, 2).map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</table>`;
 
                 this.element.innerHTML = `<div class="thought-bulb-content flex flex-col gap-3">${this.date ? `<div class="absolute top-4 right-4 text-[9px] font-mono text-indigo-400 border border-indigo-500/30 px-1.5 py-0.5 rounded bg-indigo-500/10">${this.date}</div>` : ''}${this.text ? `<p class="text-[13px] font-bold text-white pr-10">${this.text}</p>` : '<p class="text-[13px] font-bold text-slate-600 italic pr-10">Untitled</p>'}${this.description ? `<p class="text-[10px] text-slate-500 italic">${this.description}</p>` : ''}${inner}<div class="flex flex-wrap gap-1.5 mt-1">${this.tags.map(t => `<span class="tag-pill" style="${getTagStyle(t)}">${t}</span>`).join('')}</div></div>`;
@@ -626,8 +626,26 @@
         }
 
         let painting = false;
-        pCanvas.onmousedown = (e) => { painting = true; pCtx.beginPath(); pCtx.moveTo(e.offsetX, e.offsetY); pCtx.strokeStyle="white"; pCtx.lineWidth=2; };
-        pCanvas.onmousemove = (e) => { if(painting) { pCtx.lineTo(e.offsetX, e.offsetY); pCtx.stroke(); }};
+        // Paint Settings
+        pCtx.lineCap = 'round';
+        pCtx.lineJoin = 'round';
+        
+        pCanvas.onmousedown = (e) => { 
+            painting = true; 
+            pCtx.beginPath(); 
+            pCtx.moveTo(e.offsetX, e.offsetY); 
+            // Neon Chalk Style
+            pCtx.strokeStyle = "#ffffff"; 
+            pCtx.lineWidth = 4; // Thicker for calendar visibility
+            pCtx.shadowBlur = 2;
+            pCtx.shadowColor = "rgba(255, 255, 255, 0.5)";
+        };
+        pCanvas.onmousemove = (e) => { 
+            if(painting) { 
+                pCtx.lineTo(e.offsetX, e.offsetY); 
+                pCtx.stroke(); 
+            }
+        };
         window.addEventListener('mouseup', () => { if(painting) { painting = false; selectedThought.drawing = pCanvas.toDataURL(); selectedThought.updateDOM(); save(); }});
         function clearPaint() { pCtx.clearRect(0,0,240,160); selectedThought.drawing = null; selectedThought.updateDOM(); save(); }
 
