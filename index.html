@@ -64,6 +64,10 @@
         .cal-date-num { position: absolute; top: 8px; right: 8px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.3); }
         .cal-cell.today .cal-date-num { color: var(--accent); }
 
+        /* Paint Refinements for Calendar */
+        body.view-calendar .paint-container { background: transparent !important; border: none !important; padding: 0 !important; }
+        body.view-calendar .paint-container img { max-height: 80px !important; }
+
         .ui-layer { z-index: 9999; position: fixed; pointer-events: auto; }
         .glass { background: rgba(10, 10, 15, 0.85); backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.08); }
         
@@ -307,7 +311,7 @@
                     const done = this.tasks.filter(t => t.done).length;
                     inner = `<div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden mt-1"><div class="h-full bg-indigo-500 transition-all duration-500" style="width:${(done/this.tasks.length)*100}%"></div></div>`;
                 }
-                if (this.type === 'paint' && this.drawing) inner = `<div class="bg-black/40 rounded-xl p-2 mt-1 border border-white/5"><img src="${this.drawing}" class="w-full rounded-lg" style="min-height: 100px; object-fit: contain;" /></div>`;
+                if (this.type === 'paint' && this.drawing) inner = `<div class="paint-container bg-black/40 rounded-xl p-2 mt-1 border border-white/5"><img src="${this.drawing}" class="w-full rounded-lg object-contain" style="max-height: 140px;" /></div>`;
                 if (this.type === 'table') inner = `<table class="thought-table mt-1">${this.table.slice(0, 4).map(r => `<tr>${r.slice(0, 2).map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</table>`;
 
                 this.element.innerHTML = `<div class="thought-bulb-content flex flex-col gap-3">${this.date ? `<div class="absolute top-4 right-4 text-[9px] font-mono text-indigo-400 border border-indigo-500/30 px-1.5 py-0.5 rounded bg-indigo-500/10">${this.date}</div>` : ''}${this.text ? `<p class="text-[13px] font-bold text-white pr-10">${this.text}</p>` : '<p class="text-[13px] font-bold text-slate-600 italic pr-10">Untitled</p>'}${this.description ? `<p class="text-[10px] text-slate-500 italic">${this.description}</p>` : ''}${inner}<div class="flex flex-wrap gap-1.5 mt-1">${this.tags.map(t => `<span class="tag-pill" style="${getTagStyle(t)}">${t}</span>`).join('')}</div></div>`;
