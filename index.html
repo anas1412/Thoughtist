@@ -503,7 +503,7 @@
         let transform = { x: 0, y: 0, scale: 1 };
         
         const viewport = document.getElementById('viewport'), world = document.getElementById('world'), canvas = document.getElementById('connection-canvas'), ctx = canvas.getContext('2d'), pCanvas = document.getElementById('paint-canvas'), pCtx = pCanvas.getContext('2d');
-        const DAMPING = 0.88, REPULSION = 150000, ATTRACTION = 0.02, GRAVITY = 0.002;
+        const DAMPING = 0.88, REPULSION = 100000, ATTRACTION = 0.02, GRAVITY = 0.004;
         
         // Calendar State
         let calDate = new Date();
@@ -1338,7 +1338,7 @@
                         n.vy += (window.innerHeight/2 - n.y) * (GRAVITY * gravityMultiplier);
 
                         const nHeight = n.element.offsetHeight || 120;
-                        const nRadius = Math.max(140, nHeight / 2);
+                        const nRadius = Math.max(100, nHeight / 2);
 
                         thoughts.forEach((other, j) => {
                             if (i === j) return;
@@ -1346,8 +1346,8 @@
                             
                             // Dynamic Repulsion: Use the combined radii of the two thoughts
                             const otherHeight = other.element.offsetHeight || 120;
-                            const otherRadius = Math.max(140, otherHeight / 2);
-                            const minDistance = (nRadius + otherRadius) * 1.2; // 20% extra padding
+                            const otherRadius = Math.max(100, otherHeight / 2);
+                            const minDistance = (nRadius + otherRadius) * 1.1; // 10% extra padding
 
                             const otherPrio = priorityWeight[other.priority] || 0;
                             const combinedPrio = prioLevel + otherPrio;
