@@ -204,11 +204,12 @@
             <h3 class="text-[10px] font-black uppercase tracking-widest text-white">Thought Editor</h3>
             <button onclick="closeInspector()" class="text-slate-500 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
-        <div class="grid grid-cols-4 gap-1 mb-6">
+        <div class="grid grid-cols-5 gap-1 mb-6">
             <button onclick="changeType('text')" id="btn-text" class="type-btn">Text</button>
             <button onclick="changeType('tasks')" id="btn-tasks" class="type-btn">Tasks</button>
             <button onclick="changeType('paint')" id="btn-paint" class="type-btn">Paint</button>
             <button onclick="changeType('table')" id="btn-table" class="type-btn">Table</button>
+            <button onclick="changeType('image')" id="btn-image" class="type-btn">Image</button>
         </div>
         <div class="space-y-5">
             <input type="text" id="edit-name" maxlength="30" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-indigo-500 text-white" placeholder="Name">
@@ -226,6 +227,20 @@
                         <button onclick="addTableCol()" class="py-1.5 bg-white/5 rounded-lg text-[8px] font-bold uppercase">+ Col</button>
                         <button onclick="removeTableRow(selectedThought ? selectedThought.table.length - 1 : 0)" class="py-1.5 bg-red-900/10 rounded-lg text-[8px] font-bold uppercase text-red-500">- Row</button>
                         <button onclick="removeTableCol()" class="py-1.5 bg-red-900/10 rounded-lg text-[8px] font-bold uppercase text-red-500">- Col</button>
+                    </div>
+                </div>
+                <div id="area-image" class="hidden space-y-3">
+                    <div class="border border-dashed border-white/10 rounded-xl p-4 text-center hover:bg-white/5 transition-colors cursor-pointer relative">
+                        <input type="file" id="img-upload" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" onchange="handleImageUpload(this)">
+                        <i data-lucide="image" class="w-6 h-6 mx-auto text-slate-500 mb-2"></i>
+                        <p class="text-[9px] text-slate-400 uppercase font-bold tracking-widest">Upload or Drag Image</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="text" id="img-url" placeholder="Or paste image URL..." class="flex-1 bg-black/40 border border-white/10 rounded-xl p-2 text-xs outline-none focus:border-indigo-500 text-white">
+                        <button onclick="handleImageUrl()" class="p-2 bg-white/5 rounded-xl hover:bg-white/10 text-white"><i data-lucide="link" class="w-4 h-4"></i></button>
+                    </div>
+                    <div id="img-preview" class="hidden rounded-xl border border-white/10 overflow-hidden bg-black/50">
+                        <!-- Preview injected here -->
                     </div>
                 </div>
             </div>
@@ -258,6 +273,11 @@
         <button onclick="openProjectModal('new')" class="text-indigo-400 hover:text-white transition-all">+ New Project (<span id="proj-slots">0</span>/8)</button>
     </div>
 
+    <!-- UI: LIGHTBOX -->
+    <div id="lightbox" class="fixed inset-0 z-[10000] bg-black/90 backdrop-filter backdrop-blur-xl hidden items-center justify-center p-8 cursor-zoom-out" onclick="closeLightbox()">
+        <img id="lightbox-img" class="max-w-full max-h-full rounded-2xl shadow-2xl border border-white/10" src="" />
+    </div>
+
     <script>
         const KEY = 'thoughtist_MASTER_ULTIMATE_STABLE_V900';
         let projects = JSON.parse(localStorage.getItem(KEY)) || [{ id: 'p1', name: 'General Space', nodes: [], mode: 'spatial', physics: true }];
@@ -283,6 +303,7 @@
                 this.description = data.description || "";
                 this.type = data.type || 'text';
                 this.content = data.content || "";
+                this.image = data.image || null;
                 this.tags = data.tags || [];
                 this.status = data.status || 'todo';
                 this.tasks = data.tasks || [];
@@ -299,7 +320,9 @@
                 const div = document.createElement('div');
                 div.className = 'thought-bulb';
                 div.addEventListener('mousedown', (e) => this.onStart(e));
-                div.addEventListener('click', (e) => { if (!e.target.closest('.checkbox') && !this.isDragging) this.openInspector(); });
+                div.addEventListener('click', (e) => { 
+                    if (!e.target.closest('.checkbox') && !e.target.closest('.expand-img') && !this.isDragging) this.openInspector(); 
+                });
                 world.appendChild(div);
                 return div;
             }
@@ -313,13 +336,14 @@
                 }
                 if (this.type === 'paint' && this.drawing) inner = `<div class="paint-container bg-black/40 rounded-xl p-2 mt-1 border border-white/5"><img src="${this.drawing}" class="w-full rounded-lg object-contain" style="max-height: 140px;" /></div>`;
                 if (this.type === 'table') inner = `<table class="thought-table mt-1">${this.table.slice(0, 4).map(r => `<tr>${r.slice(0, 2).map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</table>`;
+                if (this.type === 'image' && this.image) inner = `<div class="mt-2 relative group"><img src="${this.image}" class="w-full rounded-xl border border-white/10 max-h-[160px] object-cover bg-black/50" /><button onclick="openLightbox('${this.image}')" class="expand-img absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"><i data-lucide="maximize-2"></i></button></div>`;
 
                 this.element.innerHTML = `<div class="thought-bulb-content flex flex-col gap-3">${this.date ? `<div class="absolute top-4 right-4 text-[9px] font-mono text-indigo-400 border border-indigo-500/30 px-1.5 py-0.5 rounded bg-indigo-500/10">${this.date}</div>` : ''}${this.text ? `<p class="text-[13px] font-bold text-white pr-10">${this.text}</p>` : '<p class="text-[13px] font-bold text-slate-600 italic pr-10">Untitled</p>'}${this.description ? `<p class="text-[10px] text-slate-500 italic">${this.description}</p>` : ''}${inner}<div class="flex flex-wrap gap-1.5 mt-1">${this.tags.map(t => `<span class="tag-pill" style="${getTagStyle(t)}">${t}</span>`).join('')}</div></div>`;
                 refreshIcons();
             }
 
             onStart(e) {
-                if (e.button !== 0 || e.target.closest('.checkbox')) return;
+                if (e.button !== 0 || e.target.closest('.checkbox') || e.target.closest('.expand-img')) return;
                 e.stopPropagation(); this.isDragging = true; this.element.classList.add('dragging');
                 const startX = (e.clientX - transform.x) / transform.scale, startY = (e.clientY - transform.y) / transform.scale;
                 const offX = startX - this.x, offY = startY - this.y;
@@ -368,9 +392,21 @@
             
             renderTypeView() {
                 document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active')); document.getElementById('btn-' + this.type).classList.add('active');
-                ['text', 'tasks', 'paint', 'table'].forEach(t => document.getElementById('area-'+t).classList.add('hidden')); document.getElementById('area-' + this.type).classList.remove('hidden');
+                ['text', 'tasks', 'paint', 'table', 'image'].forEach(t => document.getElementById('area-'+t).classList.add('hidden')); document.getElementById('area-' + this.type).classList.remove('hidden');
                 if (this.type === 'tasks') this.renderTasks(); if (this.type === 'table') this.renderTableEditor();
                 if (this.type === 'paint') { pCtx.clearRect(0,0,240,160); if (this.drawing) { const img = new Image(); img.onload = () => pCtx.drawImage(img,0,0); img.src = this.drawing; } }
+                if (this.type === 'image') this.renderImageEditor();
+            }
+
+            renderImageEditor() {
+                const preview = document.getElementById('img-preview');
+                if (this.image) {
+                    preview.innerHTML = `<img src="${this.image}" class="w-full object-contain" />`;
+                    preview.classList.remove('hidden');
+                } else {
+                    preview.innerHTML = '';
+                    preview.classList.add('hidden');
+                }
             }
 
             renderTags() {
@@ -394,7 +430,16 @@
         }
 
         // Logic Actions
-        function addThought() { if (thoughts.length >= 40) return openProjectModal('limit'); const n = new Thought({ x: (window.innerWidth/2 - transform.x)/transform.scale, y: (window.innerHeight/2 - transform.y)/transform.scale, order: thoughts.length }); thoughts.push(n); updateStats(); save(); }
+        function addThought(data = {}) { 
+            if (thoughts.length >= 40) return openProjectModal('limit'); 
+            const n = new Thought({ 
+                x: (window.innerWidth/2 - transform.x)/transform.scale, 
+                y: (window.innerHeight/2 - transform.y)/transform.scale, 
+                order: thoughts.length,
+                ...data
+            }); 
+            thoughts.push(n); updateStats(); save(); 
+        }
         function deleteThought() { thoughts = thoughts.filter(n => n.id !== selectedThought.id); selectedThought.element.remove(); closeInspector(); updateStats(); save(); }
         function changeType(t) { selectedThought.type = t; selectedThought.renderTypeView(); selectedThought.updateDOM(); save(); }
         function addTask() { if(selectedThought){ selectedThought.tasks.push({ text: "Task", done: false }); selectedThought.renderTasks(); selectedThought.updateDOM(); save(); }}
@@ -425,7 +470,69 @@
             checkEmptyState();
         }
 
-        function save() { const p = projects.find(p => p.id === activeProjectId); p.nodes = thoughts.map(n => ({ id: n.id, x: n.x, y: n.y, text: n.text, description: n.description, tags: n.tags, status: n.status, tasks: n.tasks, drawing: n.drawing, table: n.table, order: n.order, type: n.type, content: n.content, date: n.date })); localStorage.setItem(KEY, JSON.stringify(projects)); }
+        function save() { const p = projects.find(p => p.id === activeProjectId); p.nodes = thoughts.map(n => ({ id: n.id, x: n.x, y: n.y, text: n.text, description: n.description, tags: n.tags, status: n.status, tasks: n.tasks, drawing: n.drawing, table: n.table, order: n.order, type: n.type, content: n.content, date: n.date, image: n.image })); localStorage.setItem(KEY, JSON.stringify(projects)); }
+
+        // Paste & Image Logic
+        window.addEventListener('paste', (e) => {
+            if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            let foundImage = false;
+            
+            for (let index in items) {
+                const item = items[index];
+                if (item.kind === 'file' && item.type.startsWith('image/')) {
+                    foundImage = true;
+                    const blob = item.getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = (event) => { addThought({ type: 'image', image: event.target.result, text: "Image" }); };
+                    reader.readAsDataURL(blob);
+                    break; // Stop after finding an image
+                }
+            }
+
+            if (!foundImage) {
+                // Check for text only if no image was found
+                for (let index in items) {
+                    const item = items[index];
+                    if (item.kind === 'string' && item.type === 'text/plain') {
+                        item.getAsString((s) => { 
+                            if(s) {
+                                // Smart Title: First 20 chars or "Note"
+                                const title = s.length < 20 ? s : "Note";
+                                addThought({ type: 'text', text: title, content: s }); 
+                            }
+                        });
+                        break; // Stop after handling text
+                    }
+                }
+            }
+        });
+
+        function handleImageUpload(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    selectedThought.image = e.target.result;
+                    selectedThought.updateDOM();
+                    selectedThought.renderImageEditor();
+                    save();
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function handleImageUrl() {
+            const url = document.getElementById('img-url').value;
+            if(url) {
+                selectedThought.image = url;
+                selectedThought.updateDOM();
+                selectedThought.renderImageEditor();
+                save();
+            }
+        }
+
+        function openLightbox(src) { document.getElementById('lightbox-img').src = src; document.getElementById('lightbox').classList.remove('hidden'); document.getElementById('lightbox').classList.add('flex'); }
+        function closeLightbox() { document.getElementById('lightbox').classList.add('hidden'); document.getElementById('lightbox').classList.remove('flex'); }
 
         // Calendar Logic
         function changeMonth(dir) { calDate.setMonth(calDate.getMonth() + dir); renderCalendar(); }
@@ -527,7 +634,8 @@
         });
         window.addEventListener('mousemove', (e) => { if (isPanning) { transform.x += (e.clientX - lastMousePos.x); transform.y += (e.clientY - lastMousePos.y); lastMousePos = { x: e.clientX, y: e.clientY }; updateWorldTransform(); } });
         window.addEventListener('mouseup', () => isPanning = false);
-        viewport.addEventListener('wheel', (e) => {
+        window.addEventListener('wheel', (e) => {
+            if (e.target.closest('#inspector')) return; // Prevent workspace zoom when scrolling inspector
             if (document.body.classList.contains('view-kanban')) {
                 transform.y -= e.deltaY; if(transform.y > 0) transform.y = 0; // CLAMP TOP
                 transform.x = 0; transform.scale = 1;
